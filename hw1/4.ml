@@ -10,7 +10,7 @@ let rec natmul (a, b) : nat =
     | (ZERO, _) -> ZERO
     | (SUCC p, _) -> natadd(natmul(p, b), b)
 
-let _ =
+(*let _ =
 let rec nat_to_int : nat -> int =
 fun n ->
 match n with
@@ -37,4 +37,4 @@ print_bool (0 = nat_to_int (natmul (ZERO, three)));
 print_bool (0 = nat_to_int (natmul (four, ZERO)));
 print_bool (0 = nat_to_int (natmul (ZERO, ZERO)));
 print_bool (3 = nat_to_int (natmul (SUCC ZERO, three)));
-print_bool (4 = nat_to_int (natmul (four, SUCC ZERO))); 
+print_bool (4 = nat_to_int (natmul (four, SUCC ZERO))); *)
