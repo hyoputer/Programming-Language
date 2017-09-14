@@ -7,7 +7,7 @@ let rec crazy2val c : int =
     | ONE c2 -> 1 + 2 * (crazy2val c2)
     | MONE c2 -> 2 * (crazy2val c2) - 1
 
-let _ = print_endline(string_of_int (crazy2val (ONE NIL)))
+(*let _ = print_endline(string_of_int (crazy2val (ONE NIL)))
 let _ = print_endline(string_of_int (crazy2val (ONE(ZERO(ONE NIL)))))
 let _ = print_endline(string_of_int (crazy2val (ONE(MONE NIL))))
-let _ = print_endline(string_of_int (crazy2val (ONE(MONE(ZERO(MONE NIL))))))
+let _ = print_endline(string_of_int (crazy2val (ONE(MONE(ZERO(MONE NIL))))))*)
