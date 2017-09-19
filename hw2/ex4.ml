@@ -17,11 +17,11 @@ type metro = STATION of name
     | CONNECT (a, b) -> l @ (getan a) @ (getan b)
     | _ -> []*)
 
-let rec getsn m : name list = 
+(*let rec getsn m : name list = 
     match m with
     | STATION a -> a::[]
     | AREA(a, b) -> getsn b
-    | CONNECT(a, b) -> (getsn a) @ (getsn b)
+    | CONNECT(a, b) -> (getsn a) @ (getsn b)*)
 
 (*let rec checkMetro m : bool = 
   (*  let memm sm : bool = (List.mem sm (getan m)) in*)
@@ -36,15 +36,12 @@ let rec getsn m : name list =
 
 let rec nameFilter m l : bool =
     match m with
-    | AREA(a, b) -> (
-        let diff n : bool = (n <> a) in
-        (nameFilter b (List.filter diff l))
-    )
+    | AREA(a, b) -> (nameFilter b (a::l))
     | CONNECT(a, b) -> (nameFilter a l) && (nameFilter b l)
-    | _ -> (List.length l) = 0
+    | STATION a -> (List.mem a l)
 
 let rec checkMetro m : bool = 
     match m with
-    | AREA(a, b) -> nameFilter m (getsn m)
+    | AREA(a, b) -> nameFilter m []
     | CONNECT (a, b) -> (checkMetro a) && (checkMetro b)
     | _ -> false
