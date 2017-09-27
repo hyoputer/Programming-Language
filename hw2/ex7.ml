@@ -45,7 +45,6 @@ struct
     | PLUS (a, b) -> eval(env, a) + eval(env, b)
     | MINUS (a, b) -> eval(env, a) - eval(env, b)
     | MULT (a, b) -> eval(env, a) * eval(env, b)
-    | DIVIDE (a, b) when eval(env, b) = 0 -> raise (Error "divide by zero")
     | DIVIDE (a, b) -> eval(env, a) / eval(env, b)
     | MAX l -> ( 
         let comp a b: int = b - a in
@@ -69,8 +68,8 @@ struct
 
   let print_value v : unit = print_int v
 end
-
-(*let print = fun x -> Zexpr.print_value(Zexpr.eval(Zexpr.emptyEnv, x))
+(*
+let print = fun x -> Zexpr.print_value(Zexpr.eval(Zexpr.emptyEnv, x))
 let var = fun x -> Zexpr.VAR x
 let num = fun x -> Zexpr.NUM x
 let set = fun (x, y, z) -> Zexpr.LET(x, y, z)
