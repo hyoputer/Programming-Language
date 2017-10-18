@@ -230,16 +230,17 @@ struct
       let l = lookup_env_loc env x in
       let v = Mem.load mem l in
       (v, mem)
-    | RECORD r -> (
-      match r with
-      | h::t -> (
-        let (id, e) = h in
-        let (v, mem') = eval mem env e in
-        let (re, mem'') = eval mem' env (RECORD t) in
-        let (l, mem2) = Mem.alloc mem'' in
-        (Record (fun x -> if x = id then l else (value_record re) x), Mem.store mem2 l v)
-      )
+    | RECORD rlist -> (
+      match rlist with
       | [] -> (Unit, mem)
+      | _ -> (
+        let recf (re, mem) (id, exp) = (
+          let (v, mem') = eval mem env exp in
+          let (l, mem'') = Mem.alloc mem' in
+          (Record (fun x -> if x = id then l else (value_record re) x), Mem.store mem'' l v)
+        ) in
+        List.fold_left recf (Record (fun x -> raise (Error "Not in record")), mem) rlist
+      )
     )
     | ADD (e1, e2) ->
       let (v1, mem')  = eval mem env e1 in
@@ -301,6 +302,10 @@ struct
     )
     | LETF (x, vlist, e1, e2) ->
       eval mem (Env.bind env x (Proc (vlist, e1, env))) e2
+    (*| CALLV (f, elist) ->
+        let exf mem' e = eval mem' env e
+        let (idlist, ex, en) = lookup_env_proc env f*)
+
     | _ -> failwith "Unimplemented" (* TODO : Implement rest of the cases *)
 
   let run (mem, env, pgm) = 
