@@ -239,7 +239,7 @@ struct
         let (l, mem2) = Mem.alloc mem'' in
         (Record (fun x -> if x = id then l else (value_record re) x), Mem.store mem2 l v)
       )
-      | [] -> (Record (fun x -> raise (Error "Not in record")), mem)
+      | [] -> (Unit, mem)
     )
     | ADD (e1, e2) ->
       let (v1, mem')  = eval mem env e1 in
