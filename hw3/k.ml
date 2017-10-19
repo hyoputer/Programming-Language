@@ -302,7 +302,7 @@ struct
     )
     | LETF (x, vlist, e1, e2) ->
       eval mem (Env.bind env x (Proc (vlist, e1, env))) e2
-    | CALLV (f, elist) ->
+    | CALLV (f, elist) -> (
       let exf e (vlist, mem) = (
         let tuple = eval mem env e in
         ((fst tuple)::vlist, snd tuple)
@@ -313,8 +313,17 @@ struct
         let (l, mem') = Mem.alloc mem in
         (Env.bind env id (Addr l), Mem.store mem' l v)
       ) in
-      let (env'', mem'') = List.fold_left2 idviter (env', mem') idlist vlist in
+      try let (env'', mem'') = List.fold_left2 idviter (env', mem') idlist vlist in
       eval mem'' env'' (LETF (f, idlist, ex, ex))
+      with Invalid_argument  _-> raise (Error "InvalidArg")
+    )
+    | CALLR (f, ylist) -> (
+      let (xlist, ex, env') = lookup_env_proc env f in
+      let changenv env' x y = Env.bind env' x (Env.lookup env y) in
+      try let env'' = List.fold_left2 changenv env' xlist ylist in
+      eval mem env'' (LETF (f, xlist, ex, ex))
+      with Invalid_argument _ -> raise (Error "InvalidArg")
+    )
     | _ -> failwith "Unimplemented" (* TODO : Implement rest of the cases *)
 
   let run (mem, env, pgm) = 
