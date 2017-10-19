@@ -302,10 +302,19 @@ struct
     )
     | LETF (x, vlist, e1, e2) ->
       eval mem (Env.bind env x (Proc (vlist, e1, env))) e2
-    (*| CALLV (f, elist) ->
-        let exf mem' e = eval mem' env e
-        let (idlist, ex, en) = lookup_env_proc env f*)
-
+    | CALLV (f, elist) ->
+      let exf e (vlist, mem) = (
+        let tuple = eval mem env e in
+        ((fst tuple)::vlist, snd tuple)
+      ) in
+      let (vlist, mem') = List.fold_right exf elist ([], mem) in
+      let (idlist, ex, env') = lookup_env_proc env f in
+      let idviter (env, mem) id v = (
+        let (l, mem') = Mem.alloc mem in
+        (Env.bind env id (Addr l), Mem.store mem' l v)
+      ) in
+      let (env'', mem'') = List.fold_left2 idviter (env', mem') idlist vlist in
+      eval mem'' env'' (LETF (f, idlist, ex, ex))
     | _ -> failwith "Unimplemented" (* TODO : Implement rest of the cases *)
 
   let run (mem, env, pgm) = 
