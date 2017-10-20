@@ -239,7 +239,7 @@ struct
           let (l, mem'') = Mem.alloc mem' in
           (Record (fun x -> if x = id then l else (value_record re) x), Mem.store mem'' l v)
         ) in
-        List.fold_left recf (Record (fun x -> raise (Error "Not in record")), mem) rlist
+        List.fold_left recf (Record (fun x -> raise (Error "Unbound")), mem) rlist
       )
     )
     | ADD (e1, e2) ->
@@ -260,7 +260,7 @@ struct
       (Num (value_int v1 / value_int v2), mem'')
     | EQUAL (e1, e2) -> (
       let (v1, mem') = eval mem env e1 in
-      let (v2, mem'') = eval mem env e2 in
+      let (v2, mem'') = eval mem' env e2 in
       match (v1, v2) with
       | (Num a, Num b) -> (Bool (a = b), mem'')
       | (Bool a, Bool b) -> (Bool (a = b), mem'')
@@ -303,17 +303,17 @@ struct
     | LETF (x, vlist, e1, e2) ->
       eval mem (Env.bind env x (Proc (vlist, e1, env))) e2
     | CALLV (f, elist) -> (
-      let exf e (vlist, mem) = (
+      let exf (vlist, mem) e = (
         let tuple = eval mem env e in
         ((fst tuple)::vlist, snd tuple)
       ) in
-      let (vlist, mem') = List.fold_right exf elist ([], mem) in
+      let (vlist, mem') = List.fold_left exf ([], mem) elist in
       let (idlist, ex, env') = lookup_env_proc env f in
       let idviter (env, mem) id v = (
         let (l, mem') = Mem.alloc mem in
         (Env.bind env id (Addr l), Mem.store mem' l v)
       ) in
-      try let (env'', mem'') = List.fold_left2 idviter (env', mem') idlist vlist in
+      try let (env'', mem'') = List.fold_left2 idviter (env', mem') idlist (List.rev vlist) in
       eval mem'' env'' (LETF (f, idlist, ex, ex))
       with Invalid_argument  _-> raise (Error "InvalidArg")
     )
