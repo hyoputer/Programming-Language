@@ -18,22 +18,22 @@ let proc limitdft(t, n) = (
     if (isEmpty(t)) then false
     else (
         if (n = 0) then (
-            write nodeVal(t); 
+            write nodeVal(t);
             true
         )
         else (
-            let b1 = limitdft(lTree(t), n - 1) in
-            let b2 = limitdft(rTree(t), n - 1) in
+            let b1 := limitdft(lTree(t), n - 1) in
+            let b2 := limitdft(rTree(t), n - 1) in
             if (b1) then true else b2
         )
     )
 ) in
 let proc bft(t) = (
-    let b = true in
-    let n = 0 in
+    let b := true in
+    let n := 0 in
     while (b) do (
         b := limitdft(t, n);
-        n := n + 1;
+        n := n + 1
     )
 ) in
 2017
