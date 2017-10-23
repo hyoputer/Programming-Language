@@ -41,12 +41,12 @@ let rec shoppingList rlist =
     | Same subid -> 
         let subidnum = idtonum subid in
         let subarr = Array.get a subidnum in
-        let checkgift giftid = (
-          let b = List.mem giftid cur in
-          (if not b then Array.set a idnum giftid::cur);
-          b
+        let checkgift b giftid = (
+          let b' = List.mem giftid cur in
+          (if not b' then Array.set a idnum giftid::cur);
+          b' && b
         )
-        let b = List.for_all checkgift subarr in
+        let b = List.fold_left checkgift true subarr in 
         (if b then c := !c + 1 else c := 0);
         if !c = length then shoppingList [] else shoppingList t @ h 
 
