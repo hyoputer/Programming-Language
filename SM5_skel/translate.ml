@@ -26,21 +26,20 @@ module Translator = struct
     | K.SEQ (e1, e2) -> trans e1 @ [Sm5.POP] @ trans e2
     | K.IF (c, e1, e2) -> trans c @ [Sm5.JTR (trans e1, trans e2)] 
     | K.WHILE (e1, e2) ->
-      let l = trans e2 in
+      let l = trans e1 in
+      let l' = trans e2 in
       let rec fncheck fn l = if List.mem (Sm5.PUSH (Sm5.Id fn)) l then fncheck (fn ^ "w") l else fn in
-      let fn = fncheck "w" l in
-      [Sm5.PUSH (Sm5.Fn ("x", trans (K.VAR "x") @ [Sm5.UNBIND; Sm5.POP;
-      Sm5.JTR ([Sm5.BIND fn] @ l @ trans (K.CALLV (fn, e1)), [Sm5.POP] @ trans (K.UNIT))])); Sm5.BIND fn] @ trans (K.CALLV(fn, e1)) @ [Sm5.UNBIND; Sm5.POP] 
+      let fn = fncheck (fncheck "w" l) l' in
+      let vn = fncheck (fncheck "v" l) l' in
+      trans (K.LETF (fn, vn, K.IF ((K.VAR vn), K.SEQ (e2, K.CALLV(fn, e1)), K.UNIT), K.CALLV(fn, e1)))
     | K.FOR (x, e1, e2, e3) -> 
       let l = trans e2 in
       let l' = trans e3 in
       let rec vncheck vn l = if List.mem (Sm5.PUSH (Sm5.Id vn)) l then vncheck (vn ^ "v") l else vn in
       let vn = vncheck (vncheck "v" l) l' in
       let vn' = vncheck (vn ^ "v") l' in
-      trans e1 @ [Sm5.MALLOC; Sm5.BIND vn; Sm5.PUSH (Sm5.Id vn); Sm5.STORE] @ l @ [Sm5.MALLOC; Sm5.BIND vn'; Sm5.PUSH (Sm5.Id vn'); Sm5.STORE] @ 
-      trans (K.IF (K.EQUAL (K.LESS (K.VAR vn, K.VAR vn'), K.EQUAL(K.VAR vn, K.VAR vn')), K.UNIT, K.SEQ(K.ASSIGN(x, K.VAR vn), 
-      K.WHILE(K.NOT (K.LESS(K.VAR vn', K.VAR x)), K.SEQ(e3, K.ASSIGN(x, K.ADD(K.VAR x, K.NUM 1))))))) @ 
-      [Sm5.UNBIND; Sm5.POP; Sm5.UNBIND; Sm5.POP]
+      trans (K.LETV (vn, e1, (K.LETV (vn', e2, K.IF (K.LESS (K.VAR vn', K.VAR vn), K.UNIT, K.SEQ (K.SEQ (K.SEQ (K.ASSIGN (x, K.VAR vn), 
+      K.WHILE (K.NOT (K.LESS (K.VAR vn', K.VAR x)), K.SEQ (e3, K.ASSIGN (x, K.ADD (K.VAR x, K.NUM 1))))), K.ASSIGN (x, K.VAR vn')), K.UNIT))))))
     | K.LETV (x, e1, e2) ->
       trans e1 @ [Sm5.MALLOC; Sm5.BIND x; Sm5.PUSH (Sm5.Id x); Sm5.STORE] @
       trans e2 @ [Sm5.UNBIND; Sm5.POP]
