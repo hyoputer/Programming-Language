@@ -210,7 +210,8 @@ struct
       let _ = loc_id := !loc_id + 1 in
       ((!loc_id, 0), m)
     else
-      let _ = reachable_locs := [] in
+      let mp e = List.map (fun (x, Loc l) -> l) (List.filter (fun (x, l) -> match l with Loc _ -> true | _ -> false) e) in
+      let _ = reachable_locs := mp e @ List.fold_left (fun li (c, ev) -> li @ mp ev) [] k in
       (* TODO : Add the code that marks the reachable locations.
        * let _ = ... 
        *)
