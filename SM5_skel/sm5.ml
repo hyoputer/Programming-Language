@@ -211,10 +211,24 @@ struct
       ((!loc_id, 0), m)
     else
       let mp e = List.map (fun (x, Loc l) -> l) (List.filter (fun (x, l) -> match l with Loc _ -> true | _ -> false) e) in
-      let _ = reachable_locs := mp e @ List.fold_left (fun li (c, ev) -> li @ mp ev) [] k in
+      let _ = reachable_locs := mp e @ (List.fold_left (fun li (c, ev) -> li @ mp ev) [] k) @ 
+      List.fold_left (fun li sv -> 
+        match sv with 
+        | V (L l) -> l::li 
+        | V (R r) -> li @ (List.map (fun (_, l) -> l) r)
+        | M (_, Loc l) -> l::li
+        | _ -> li
+      ) [] s @
+      List.fold_left (fun li mv ->
+        match mv with
+        | (_, L l) -> l::li
+        | (_, R r) -> li @ (List.map (fun (_, l) -> l) r)
+        | _ -> li
+      ) [] m in
       (* TODO : Add the code that marks the reachable locations.
        * let _ = ... 
        *)
+
       let new_m = List.filter (fun (l, _) -> List.mem l !reachable_locs) m in
       if List.length new_m < mem_limit then
         let _ = loc_id := !loc_id + 1 in
