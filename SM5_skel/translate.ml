@@ -38,8 +38,34 @@ module Translator = struct
       let rec vncheck vn l = if List.mem (Sm5.PUSH (Sm5.Id vn)) l then vncheck (vn ^ "v") l else vn in
       let vn = vncheck (vncheck "v" l) l' in
       let vn' = vncheck (vn ^ "v") l' in
-      trans (K.LETV (vn, e1, (K.LETV (vn', e2, K.IF (K.LESS (K.VAR vn', K.VAR vn), K.UNIT, K.SEQ (K.SEQ (K.SEQ (K.ASSIGN (x, K.VAR vn), 
-      K.WHILE (K.NOT (K.LESS (K.VAR vn', K.VAR x)), K.SEQ (e3, K.ASSIGN (x, K.ADD (K.VAR x, K.NUM 1))))), K.ASSIGN (x, K.VAR vn')), K.UNIT))))))
+      let i = vncheck (vn' ^ "v") l' in
+      trans (K.LETV (vn, e1, (K.LETV (vn', e2, K.LETV (i, K.NUM 0, K.IF (K.LESS (K.VAR vn', K.VAR vn), K.UNIT, 
+      K.SEQ (
+        K.SEQ (
+          K.SEQ (
+            K.ASSIGN (x, K.VAR vn), 
+            K.WHILE (
+              K.NOT (
+                K.LESS (
+                  K.SUB (K.VAR vn', K.NUM 1), K.VAR x
+                )
+              ), 
+              K.SEQ (
+                e3, K.ASSIGN (
+                  x, K.SEQ (
+                    K.ASSIGN (
+                      i, K.ADD (K.VAR i, K.NUM 1)
+                    ), 
+                    K.ADD (K.VAR vn, K.VAR i)
+                  )
+                )
+              )
+            )
+          ),
+          e3
+        ), 
+        K.UNIT
+      )))))))
     | K.LETV (x, e1, e2) ->
       trans e1 @ [Sm5.MALLOC; Sm5.BIND x; Sm5.PUSH (Sm5.Id x); Sm5.STORE] @
       trans e2 @ [Sm5.UNBIND; Sm5.POP]
