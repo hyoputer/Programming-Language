@@ -84,7 +84,7 @@ let rec ftv_of_typ : typ -> var list = function
   | TPair (t1, t2) -> union_ftv (ftv_of_typ t1) (ftv_of_typ t2)
   | TLoc t -> ftv_of_typ t
   | TFun (t1, t2) ->  union_ftv (ftv_of_typ t1) (ftv_of_typ t2)
-  | TVar v -> [v]
+  | TVar v | TSimple_ v | TSimple v -> [v]
   | _ -> []
 
 let ftv_of_scheme : typ_scheme -> var list = function
@@ -211,7 +211,7 @@ let rec w : (typ_env * M.exp) -> (subst * typ) = function
     let _ = print_newline() in
     (s3 @@ s2 @@ s1, s3 b)
   )
-  | (env, M.LET (dec(*M.VAL (x, e1)*), e2)) -> (
+  | (env, M.LET (dec, e2)) -> (
     match dec with
     | M.VAL (x, e1) ->
       let (s1, t1) = w (env, e1) in
@@ -280,7 +280,7 @@ let rec w : (typ_env * M.exp) -> (subst * typ) = function
       | (TLoc _, TVar x) | (TVar x, TLoc _) -> 
         let t = TVar (new_var()) in (* FIXME*)
         (make_subst x (TLoc t) @@ s2 @@ s1, TBool)
-      | (TVar x, TVar x') -> ((make_subst x (TSimple_ (new_var()))) @@ (make_subst x' (TVar x)) @@ s2 @@ s1, TBool)
+      | (TVar x, TVar x') ->  ((make_subst x (TSimple_ (new_var()))) @@ (make_subst x' (TVar x)) @@ s2 @@ s1, TBool)
       | _ -> raise (M.TypeError ("operation typerror: " ^ (ttos t1) ^ " " ^ (ttos t2)))
     )
   )
@@ -317,11 +317,11 @@ let rec w : (typ_env * M.exp) -> (subst * typ) = function
   | (env, M.SEQ (e1, e2)) -> 
     let (s1, t1) = w (env, e1) in
     let (s2, t2) = w (subst_env s1 env, e2) in
-    (s2 @@ s1, t2)
+    (empty_subst, t2)
 
   | (env, M.PAIR (e1, e2)) -> 
-    let (_, t1) = w (env, e1) in
-    let (_, t2) = w (env, e2) in
+    let (s1, t1) = w (env, e1) in
+    let (s2, t2) = w (env, e2) in
     (empty_subst, TPair (t1, t2))
 
   | (env, M.FST e) -> (
