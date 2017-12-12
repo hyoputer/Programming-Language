@@ -1,0 +1,8 @@
+let f = fn: (x, fn: (y, if (op (var: x, var: y)) then unimplemented else unimplemented)) in
+app(app(var: f, const: (num: 1)), const: (num: 2))
+in M.App s2 t1: fun(Simple: x_4, fun(Simple: x_4, sim_: x_3)), t2: Int
+x_4 -> Int x_5 -> fun(Int, sim_: x_3) 
+in M.App s2 t1: fun(Int, sim_: x_3), t2: Int
+x_4 -> Int x_5 -> fun(Int, sim_: x_3) x_6 -> sim_: x_3 
+sim_: x_3
+unexpected type

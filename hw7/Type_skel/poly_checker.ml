@@ -40,7 +40,7 @@ type typ =
   | TLoc of typ
   | TFun of typ * typ
   | TVar of var
-  | TSimple
+  | TSimple of var
   | TSimple_ of var
   | TPrint
   (* Modify, or add more if needed *)
@@ -53,7 +53,7 @@ let rec ttos : typ -> string = function
   | TLoc t -> "loc: " ^ ttos t
   | TFun (t1, t2) -> "fun(" ^ ttos t1 ^ ", " ^ ttos t2 ^ ")"
   | TVar v -> "var: " ^ v
-  | TSimple -> "Simple"
+  | TSimple v-> "Simple: " ^ v
   | TSimple_ v -> "sim_: " ^ v
   | _ -> ""
 
@@ -101,7 +101,7 @@ let generalize : typ_env -> typ -> typ_scheme = fun tyenv t ->
   let env_ftv = ftv_of_env tyenv in
   let typ_ftv = ftv_of_typ t in
   let ftv = sub_ftv typ_ftv env_ftv in
-  if List.length ftv = 0 then
+  if List.length ftv = 0 then 
     SimpleTyp t
   else
     GenTyp(ftv, t)
@@ -121,8 +121,7 @@ let make_subst : var -> typ -> subst = fun x t ->
     | TFun (t1, t2) -> TFun (subs t1, subs t2)
     | TInt | TBool | TString -> t'
     | TPrint -> let _ = print_string (x ^ " -> " ^ ttos t ^ " ") in t'
-    | TSimple_ x' -> if (x = x') then t else t'
-    | _ -> t'
+    | TSimple_ x' | TSimple x'-> if (x = x') then t else t'
   in subs
 
 let (@@) s1 s2 = (fun t -> s1 (s2 t)) (* substitution composition *)
@@ -149,14 +148,18 @@ let rec u : (typ * typ) -> subst = fun (t1, t2) ->
   | (TSimple_ a, t) | (t, TSimple_ a) -> (
     match t with
     | TInt | TBool | TString | TLoc _ -> make_subst a t
+    | _ -> raise (M.TypeError ("simple_ error"))
+  )
+  | (TSimple a, t) | (t, TSimple a) -> (
+    match t with
+    | TInt | TBool | TString -> make_subst a t
     | _ -> raise (M.TypeError ("simple error"))
   )
   | (TFun (t1, t2), TFun (t1', t2')) -> 
     let s = u (t1, t1') in
     let s' = u (s t2, s t2') in
     s' @@ s
-  | (TInt, TInt) | (TBool, TBool) | (TString, TString) 
-  | (TSimple, TInt) | (TSimple, TBool) | (TSimple, TString) | (TInt, TSimple) | (TBool, TSimple) | (TString, TSimple) -> empty_subst
+  | (TInt, TInt) | (TBool, TBool) | (TString, TString) -> empty_subst 
   | (TPair (t1, t2), TPair (t1', t2')) -> 
     let s = u (t1, t1') in
     let s' = u (s t2, s t2') in
@@ -183,8 +186,9 @@ let rec w : (typ_env * M.exp) -> (subst * typ) = function
   )
   | (env, M.VAR x) -> (
     match List.assoc x env with
-    | SimpleTyp t -> (empty_subst, t)
+    | SimpleTyp t ->  let _ = print_endline ("simple " ^ ttos t) in (empty_subst, t)
     | GenTyp (aphs, t) ->  (
+      let _ = print_endline ("general "^ ttos t) in
       match subst_scheme empty_subst (GenTyp (aphs, t)) with
       | GenTyp (_, t) -> (empty_subst, t)
       | _ -> raise (M.TypeError "var error")
@@ -194,8 +198,9 @@ let rec w : (typ_env * M.exp) -> (subst * typ) = function
   | (env, M.FN (x, e)) ->
     let b = SimpleTyp (TVar (new_var())) in(* FIXME *)
     let (s1, t1) = w ((x, b)::env, e) in (
+      let _ = s1 TPrint in
       match subst_scheme s1 b with
-      | SimpleTyp t -> (s1, TFun(t, t1))
+      | SimpleTyp t -> let _ = print_endline ("FN " ^ ttos t) in (s1, TFun(t, t1))
       | _ -> raise (M.TypeError "new typscheme")
     )
   | (env,M.APP (e1, e2)) -> (
@@ -208,7 +213,7 @@ let rec w : (typ_env * M.exp) -> (subst * typ) = function
     let _ = print_newline() in
     (s3 @@ s2 @@ s1, s3 b)
   )
-  | (env, M.LET (dec(*M.VAL (x, e1)*), e2)) -> (
+  | (env, M.LET (dec, e2)) -> (
     match dec with
     | M.VAL (x, e1) ->
       let (s1, t1) = w (env, e1) in
@@ -285,9 +290,10 @@ let rec w : (typ_env * M.exp) -> (subst * typ) = function
   | (env, M.WRITE e) -> (
     let (s, t) = w (env, e) in
     match t with
-    | TInt | TBool | TString -> (empty_subst, t)
-    | TVar x -> (make_subst x TSimple, t)
-    | _ -> raise (M.TypeError (ttos t))
+    | TInt | TBool | TString | TSimple _-> (empty_subst, t)
+    | TVar x -> (make_subst x (TSimple (new_var())), t)
+    | TSimple_ x -> (make_subst x (TSimple x), t)
+    | _ -> raise (M.TypeError ("writerror " ^ (ttos t)))
   )
   | (env, M.MALLOC e) -> 
     let (s, t) = w (env, e) in
@@ -304,10 +310,10 @@ let rec w : (typ_env * M.exp) -> (subst * typ) = function
   | (env, M.BANG e) -> (
     let (s, t) = w (env, e) in
     match t with
-    | (TLoc t) -> (s, t)
-    | (TVar x) -> 
-      let t' = TVar (new_var()) in
-      (make_subst x (TLoc t'), t')
+    | TLoc t -> (s, t)
+    | TVar x -> 
+        let t' = TVar (new_var()) in
+        (make_subst x (TLoc t'), t')
     | _ -> raise (M.TypeError "bang error")
   )
   | (env, M.SEQ (e1, e2)) -> 
@@ -316,26 +322,27 @@ let rec w : (typ_env * M.exp) -> (subst * typ) = function
     (s2 @@ s1, t2)
 
   | (env, M.PAIR (e1, e2)) -> 
-    let (_, t1) = w (env, e1) in
-    let (_, t2) = w (env, e2) in
-    (empty_subst, TPair (t1, t2))
+    let (s1, t1) = w (env, e1) in
+    let (s2, t2) = w (subst_env s1 env, e2) in
+    let _ = print_endline ("PAIR " ^ ttos t1 ^ " " ^ ttos t2) in
+    (empty_subst, TPair (s2 t1, s2 t2))
 
   | (env, M.FST e) -> (
     let (s, t) = w (env, e) in
     match t with 
     | TPair (t1, t2) -> (empty_subst, t1) (*FIXME*)
     | TVar x -> 
-      let t' = TVar (new_var()) in
-      (make_subst x (TPair (t', TVar (new_var()))), t')
+        let t' = TVar (new_var()) in
+        (make_subst x (TPair (t', TVar (new_var()))), t')
     | t -> raise (M.TypeError ("fst error: " ^ ttos t))
   )
   | (env, M.SND e) -> (
     let (s, t) = w (env, e) in
     match t with 
     | TPair (t1, t2) -> (empty_subst, t2) (*FIXME*)
-    | TVar x -> 
-      let t' = TVar (new_var()) in
-      (make_subst x (TPair (TVar (new_var()), t')), t')
+    | TVar x ->
+        let t' = TVar (new_var()) in
+        (make_subst x (TPair (TVar (new_var()), t')), t')
     | t -> raise (M.TypeError ("snd error: " ^ ttos t))
   )
 
