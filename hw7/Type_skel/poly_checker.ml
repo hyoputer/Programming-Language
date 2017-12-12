@@ -142,7 +142,9 @@ let rec u : (typ * typ) -> subst = fun (t1, t2) ->
     let s = u (t1, t1') in
     let s' = u (s t2, s t2') in
     s' @@ s
-  | (TInt, TInt) | (TInt, TBool) | (TInt, TString) | (TBool, TInt) | (TBool, TBool) | (TBool, TString) | (TString, TInt) | (TString, TBool) | (TString, TString) -> empty_subst
+  | (TInt, TInt) | (TBool, TBool) | (TString, TString) -> empty_subst
+  | (TPair (t1, t2), TPair (t1', t2')) -> (u (t1, t1')) @@ (u (t2, t2'))
+  | (TLoc t1, TLoc t2) -> u (t1, t2)
   | (t1, t2) ->raise (M.TypeError ("unify error: " ^ ttos t1 ^ ", " ^ ttos t2))
 
 
@@ -174,10 +176,11 @@ let rec w : (typ_env * M.exp) -> (subst * typ) = function
     let (s1, t1) = w (env, e1) in
     let (s2, t2) = w (subst_env s1 env, e2) in
     let b = TVar (new_var()) in
-    let _ = print_endline ("in M.App s2 t1: " ^ ttos (s2 t1) ^ ", t2: " ^ ttos t2) in
+    let _ = print_endline ("in M.App t1: " ^ ttos t1 ^ " s2 t1: " ^ ttos (s2 t1) ^ ", t2: " ^ ttos t2) in
     let s3 = u (s2 t1, TFun (t2, b)) in
     let _ = s3 TPrint in
     let _ = print_newline() in
+    let _ = print_endline (ttos (s3 b)) in
     (s3 @@ s2 @@ s1, s3 b)
   )
   | (env, M.LET (M.VAL (x, e1), e2)) -> (
@@ -196,6 +199,8 @@ let rec w : (typ_env * M.exp) -> (subst * typ) = function
     | (M.EQ, (_, TString), (_, TString)) 
     | (M.EQ, (_, TLoc _), (_, TLoc _)) 
       ->(empty_subst, TBool)
+    | (M.ADD, (_, TVar x), (_, TInt)) ->
+      (make_subst x TInt, TInt)
     | (_, (_, t1), (_, t2)) -> raise (M.TypeError ("operation typerror: " ^ (ttos t1) ^ " " ^ (ttos t2)))
   )
   | (env, M.SEQ (e1, e2)) -> 
@@ -211,13 +216,19 @@ let rec w : (typ_env * M.exp) -> (subst * typ) = function
     let (s, t) = w (env, e) in
     match t with 
     | TPair (t1, t2) -> (empty_subst, t1) (*FIXME*)
-    | TVar x -> (make_subst x (TPair (TVar (new_var()), TVar (new_var()))), t)
-    | t -> raise (M.TypeError (ttos t))
+    | TVar x -> 
+      let t' = TVar (new_var()) in
+      (make_subst x (TPair (t', TVar (new_var()))), t')
+    | t -> raise (M.TypeError ("fst error: " ^ ttos t))
   )
   | (env, M.SND e) -> (
-    match w (env, e) with
-    | (_, TPair (t1, t2)) -> (empty_subst, t2)
-    | _ -> raise (M.TypeError "use snd in pair")
+    let (s, t) = w (env, e) in
+    match t with 
+    | TPair (t1, t2) -> (empty_subst, t1) (*FIXME*)
+    | TVar x -> 
+      let t' = TVar (new_var()) in
+      (make_subst x (TPair (TVar (new_var()), t')), t')
+    | t -> raise (M.TypeError ("snd error: " ^ ttos t))
   )
   | _ -> raise (M.TypeError "Type Checker Unimplemented")
 
