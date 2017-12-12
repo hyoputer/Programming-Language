@@ -40,6 +40,8 @@ type typ =
   | TLoc of typ
   | TFun of typ * typ
   | TVar of var
+  | TSimple
+  | TSimple_
   | TPrint
   (* Modify, or add more if needed *)
 
@@ -149,6 +151,7 @@ let rec u : (typ * typ) -> subst = fun (t1, t2) ->
     let s' = u (s t2, s t2') in
     s' @@ s
   | (TLoc t1, TLoc t2) -> u (t1, t2)
+  | (TVar a, TVar b) when a = b -> empty_subst (*FIXME*)
   | (t1, t2) ->raise (M.TypeError ("unify error: " ^ ttos t1 ^ ", " ^ ttos t2))
 
 
@@ -210,6 +213,7 @@ let rec w : (typ_env * M.exp) -> (subst * typ) = function
     | M.REC (f, x, e1) ->
       let b = TVar (new_var()) in
       let (s1', t1') = w ((f, SimpleTyp b)::env, M.FN (x, e1)) in
+      let _ = print_endline ("in M.REC s1' b: " ^ ttos (s1' b) ^ ", t1': " ^ ttos t1') in
       let s2' = u (s1' b, t1') in
       let (s1, t1) = (s2' @@ s1', s2' t1') in
       let s1env = subst_env s1 env in
@@ -232,7 +236,7 @@ let rec w : (typ_env * M.exp) -> (subst * typ) = function
     let (s2, t2) = w (subst_env s1 env, e2) in
     let (s3, t3) = w (subst_env s2 (subst_env s1 env), e3) in
     match t1 with
-    | TBool -> (s2, t2)
+    | TBool -> (s3 @@ s2 @@ s1, t2)
     | TVar x -> (make_subst x TBool @@ s3 @@ s2 @@ s1, t2)
     | _ -> raise (M.TypeError "if error")
   )
@@ -262,10 +266,18 @@ let rec w : (typ_env * M.exp) -> (subst * typ) = function
       | (TInt, TVar x) | (TBool, TVar x) | (TString, TVar x) -> (make_subst x t1 @@ s2 @@ s1, TBool)
       | (TLoc _, TVar x) | (TVar x, TLoc _) -> 
         let t = TVar (new_var()) in (* FIXME*)
-        (make_subst x t @@ s2 @@ s1, TBool)
-      | (TVar x, TVar x') -> raise (M.TypeError "equal error")
+        (make_subst x (TLoc t) @@ s2 @@ s1, TBool)
+      | (TVar x, TVar x') -> ((make_subst x TSimple_) @@ (make_subst x' (TVar x)) @@ s2 @@ s1, TBool)
       | _ -> raise (M.TypeError ("operation typerror: " ^ (ttos t1) ^ " " ^ (ttos t2)))
     )
+  )
+  | (env, M.READ) -> (empty_subst, TInt)
+  | (env, M.WRITE e) -> (
+    let (s, t) = w (env, e) in
+    match t with
+    | TInt | TBool | TString -> (empty_subst, t)
+    | TVar x -> (make_subst x TSimple, t)
+    | _ -> raise (M.TypeError (ttos t))
   )
   | (env, M.MALLOC e) -> 
     let (s, t) = w (env, e) in
@@ -316,7 +328,6 @@ let rec w : (typ_env * M.exp) -> (subst * typ) = function
       (make_subst x (TPair (TVar (new_var()), t')), t')
     | t -> raise (M.TypeError ("snd error: " ^ ttos t))
   )
-  | _ -> raise (M.TypeError "Type Checker Unimplemented")
 
 let rec ttoty : (subst * typ) -> M.typ = function
   | (_, TInt) -> M.TyInt
