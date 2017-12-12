@@ -40,7 +40,7 @@ type typ =
   | TLoc of typ
   | TFun of typ * typ
   | TVar of var
-  | TSimple
+  | TSimple of var
   | TSimple_ of var
   | TPrint
   (* Modify, or add more if needed *)
@@ -53,7 +53,7 @@ let rec ttos : typ -> string = function
   | TLoc t -> "loc: " ^ ttos t
   | TFun (t1, t2) -> "fun(" ^ ttos t1 ^ ", " ^ ttos t2 ^ ")"
   | TVar v -> "var: " ^ v
-  | TSimple -> "Simple"
+  | TSimple v -> "Simple" ^ v
   | TSimple_ v -> "sim_: " ^ v
   | _ -> ""
 
@@ -121,8 +121,7 @@ let make_subst : var -> typ -> subst = fun x t ->
     | TFun (t1, t2) -> TFun (subs t1, subs t2)
     | TInt | TBool | TString -> t'
     | TPrint -> let _ = print_string (x ^ " -> " ^ ttos t ^ " ") in t'
-    | TSimple_ x' -> if (x = x') then t else t'
-    | _ -> t'
+    | TSimple_ x' | TSimple x' -> if (x = x') then t else t'
   in subs
 
 let (@@) s1 s2 = (fun t -> s1 (s2 t)) (* substitution composition *)
@@ -151,12 +150,16 @@ let rec u : (typ * typ) -> subst = fun (t1, t2) ->
     | TInt | TBool | TString | TLoc _ -> make_subst a t
     | _ -> raise (M.TypeError ("simple error"))
   )
+  | (TSimple a, t) | (t, TSimple a) -> (
+    match t with
+    | TInt | TBool | TString -> make_subst a t
+    | _ -> raise (M.TypeError ("simple error"))
+  )
   | (TFun (t1, t2), TFun (t1', t2')) -> 
     let s = u (t1, t1') in
     let s' = u (s t2, s t2') in
     s' @@ s
-  | (TInt, TInt) | (TBool, TBool) | (TString, TString) 
-  | (TSimple, TInt) | (TSimple, TBool) | (TSimple, TString) | (TInt, TSimple) | (TBool, TSimple) | (TString, TSimple) -> empty_subst
+  | (TInt, TInt) | (TBool, TBool) | (TString, TString) -> empty_subst 
   | (TPair (t1, t2), TPair (t1', t2')) -> 
     let s = u (t1, t1') in
     let s' = u (s t2, s t2') in
@@ -285,9 +288,10 @@ let rec w : (typ_env * M.exp) -> (subst * typ) = function
   | (env, M.WRITE e) -> (
     let (s, t) = w (env, e) in
     match t with
-    | TInt | TBool | TString -> (empty_subst, t)
-    | TVar x -> (make_subst x TSimple, t)
-    | _ -> raise (M.TypeError (ttos t))
+    | TInt | TBool | TString | TSimple _ -> (empty_subst, t)
+    | TVar x -> (make_subst x (TSimple (new_var())), t)
+    | TSimple_ x -> (make_subst x (TSimple x), t)
+    | _ -> raise (M.TypeError ("write error " ^ ttos t))
   )
   | (env, M.MALLOC e) -> 
     let (s, t) = w (env, e) in
@@ -346,6 +350,7 @@ let rec ttoty : (subst * typ) -> M.typ = function
   | (s, TPair(t1, t2)) -> M.TyPair (ttoty (s, t1), ttoty (s, t2))
   | (s, TLoc t) -> M.TyLoc (ttoty (s, t))
   | (s, TVar v) -> ttoty (s, s (TVar v))
+  | (s, TSimple_ v) -> ttoty (s, s (TSimple_ v))
   | _ -> raise (M.TypeError "unexpected type")
 
 
