@@ -27,6 +27,7 @@ let rec etos : M.exp -> string = function
   | M.SEQ (e1, e2) -> etos e1 ^ ";\n" ^ etos e2
   | M.PAIR (e1, e2) -> "(" ^ etos e1 ^ ", " ^ etos e2 ^ ")"
   | M.FST e -> "fst (" ^ etos e ^ ")"
+  | M.SND e -> "snd (" ^ etos e ^ ")"
   | _ -> "unimplemented"
 
 type var = string
@@ -143,9 +144,20 @@ let rec u : (typ * typ) -> subst = fun (t1, t2) ->
     let s' = u (s t2, s t2') in
     s' @@ s
   | (TInt, TInt) | (TBool, TBool) | (TString, TString) -> empty_subst
-  | (TPair (t1, t2), TPair (t1', t2')) -> (u (t1, t1')) @@ (u (t2, t2'))
+  | (TPair (t1, t2), TPair (t1', t2')) -> 
+    let s = u (t1, t1') in
+    let s' = u (s t2, s t2') in
+    s' @@ s
   | (TLoc t1, TLoc t2) -> u (t1, t2)
   | (t1, t2) ->raise (M.TypeError ("unify error: " ^ ttos t1 ^ ", " ^ ttos t2))
+
+
+let rec expan : M.exp -> bool = function
+  | M.CONST _| M.VAR _ | M.FN _ | M.READ -> false
+  | M.MALLOC _ | M.APP _ -> true
+  | M.BANG e | M.FST e | M.SND e | M.WRITE e -> expan e
+  | M.ASSIGN (e1, e2) | M.LET (M.VAL (_, e1), e2) | M.LET (M.REC (_, _, e1), e2) | (M.BOP (_, e1, e2)) | M.PAIR (e1, e2) |  M.SEQ (e1, e2) -> expan e1 || expan e2
+  | M.IF (e1, e2, e3) -> expan e1 || expan e2 || expan e3
 
 
 let rec w : (typ_env * M.exp) -> (subst * typ) = function
@@ -176,36 +188,110 @@ let rec w : (typ_env * M.exp) -> (subst * typ) = function
     let (s1, t1) = w (env, e1) in
     let (s2, t2) = w (subst_env s1 env, e2) in
     let b = TVar (new_var()) in
-    let _ = print_endline ("in M.App t1: " ^ ttos t1 ^ " s2 t1: " ^ ttos (s2 t1) ^ ", t2: " ^ ttos t2) in
+    let _ = print_endline ("in M.App s2 t1: " ^ ttos (s2 t1) ^ ", t2: " ^ ttos t2) in
     let s3 = u (s2 t1, TFun (t2, b)) in
-    let _ = s3 TPrint in
+    let _ = (s3 @@ s2 @@ s1) TPrint in
     let _ = print_newline() in
     let _ = print_endline (ttos (s3 b)) in
     (s3 @@ s2 @@ s1, s3 b)
   )
-  | (env, M.LET (M.VAL (x, e1), e2)) -> (
-    let (s1, t1) = w (env, e1) in
-    let s1env = subst_env s1 env in
-    let (s2, t2) = w ((x, generalize s1env t1)::s1env, e2) in
-    (s2 @@ s1, t2)
+  | (env, M.LET (dec(*M.VAL (x, e1)*), e2)) -> (
+    match dec with
+    | M.VAL (x, e1) ->
+      let (s1, t1) = w (env, e1) in
+      let s1env = subst_env s1 env in
+      if (not (expan(e1))) 
+      then
+        let (s2, t2) = w ((x, generalize s1env t1)::s1env, e2) in
+        (s2 @@ s1, t2)
+      else 
+        let (s2, t2) = w ((x, SimpleTyp t1)::s1env, e2) in
+        (s2 @@ s1, t2)
+    | M.REC (f, x, e1) ->
+      let b = TVar (new_var()) in
+      let (s1', t1') = w ((f, SimpleTyp b)::env, M.FN (x, e1)) in
+      let s2' = u (s1' b, t1') in
+      let (s1, t1) = (s2' @@ s1', s2' t1') in
+      let s1env = subst_env s1 env in
+      if (not (expan (M.FN (x, e1))))
+      then
+        let (s2, t2) = w ((f, generalize s1env t1)::s1env, e2) in
+        (s2 @@ s1, t2)
+      else
+        let (s2, t2) = w ((f, SimpleTyp t1)::s1env, e2) in
+        (s2 @@ s1, t2)
   )
-  | (env, M.IF (e1, e2, e3)) -> (empty_subst, TBool)
+  (*| (env, M.LET (M.REC (f, x, e1), e2)) -> 
+    let b = TVar (new_var()) in
+    let (s1, t1) = w ((f, SimpleTyp b)::env, M.FN (x, e1)) in
+    let s2 = u (s1 b, t1) in
+    (s2 @@ s1, s2 t1)
+*)
+  | (env, M.IF (e1, e2, e3)) -> (
+    let (s1, t1) = w (env, e1) in
+    let (s2, t2) = w (subst_env s1 env, e2) in
+    let (s3, t3) = w (subst_env s2 (subst_env s1 env), e3) in
+    match t1 with
+    | TBool -> (s2, t2)
+    | TVar x -> (make_subst x TBool @@ s3 @@ s2 @@ s1, t2)
+    | _ -> raise (M.TypeError "if error")
+  )
   | (env, M.BOP (op, e1, e2)) -> (
-    match (op, w (env, e1), w (env, e2)) with
-    | (M.ADD, (_, TInt), (_, TInt)) | (M.SUB, (_, TInt), (_, TInt)) -> (empty_subst, TInt)
-    | (M.AND, (_, TBool), (_, TBool)) | (M.OR, (_, TBool), (_, TBool))
-    | (M.EQ, (_, TInt), (_, TInt)) 
-    | (M.EQ, (_, TBool), (_, TBool)) 
-    | (M.EQ, (_, TString), (_, TString)) 
-    | (M.EQ, (_, TLoc _), (_, TLoc _)) 
-      ->(empty_subst, TBool)
-    | (M.ADD, (_, TVar x), (_, TInt)) ->
-      (make_subst x TInt, TInt)
-    | (_, (_, t1), (_, t2)) -> raise (M.TypeError ("operation typerror: " ^ (ttos t1) ^ " " ^ (ttos t2)))
+    let (s1, t1) = w (env, e1) in
+    let (s2, t2) = w (subst_env s1 env, e2) in
+    (*let _ = print_endline ("bop: " ^ ttos (t1) ^ ", " ^ ttos (t2)) in (*FIXME*)*)
+    match op with
+    | M.ADD | M.SUB -> (
+      match (t1, t2) with
+      | (TInt, TInt) -> (s2 @@ s1, TInt)
+      | (TVar x, TInt) | (TInt, TVar x) -> (make_subst x TInt @@ s2 @@ s1, TInt)
+      | (TVar x, TVar x') -> ((make_subst x TInt) @@ (make_subst x' TInt) @@ s2 @@ s1, TInt)
+      | _ -> raise (M.TypeError ("operation typerror: " ^ (ttos t1) ^ " " ^ (ttos t2)))
+    )
+    | M.AND | M.OR -> (
+      match (t1, t2) with
+      | (TBool, TBool) -> (s2 @@ s1 @@ empty_subst, TBool)
+      | (TVar x, TBool) | (TBool, TVar x) -> (make_subst x TBool @@ s2 @@ s1, TBool)
+      | (TVar x, TVar x') -> ((make_subst x TBool) @@ (make_subst x' TBool @@ s2 @@ s1), TBool)
+      | _ -> raise (M.TypeError ("operation typerror: " ^ (ttos t1) ^ " " ^ (ttos t2)))
+    )
+    | M.EQ -> (
+      match (t1, t2) with
+      | (TInt, TInt) | (TBool, TBool) | (TString, TString) | (TLoc _, TLoc _) -> (s2 @@ s1 @@ empty_subst, TBool)
+      | (TVar x, TInt) | (TVar x, TBool) | (TVar x, TString) -> (make_subst x t2 @@ s2 @@ s1, TBool)
+      | (TInt, TVar x) | (TBool, TVar x) | (TString, TVar x) -> (make_subst x t1 @@ s2 @@ s1, TBool)
+      | (TLoc _, TVar x) | (TVar x, TLoc _) -> 
+        let t = TVar (new_var()) in (* FIXME*)
+        (make_subst x t @@ s2 @@ s1, TBool)
+      | (TVar x, TVar x') -> raise (M.TypeError "equal error")
+      | _ -> raise (M.TypeError ("operation typerror: " ^ (ttos t1) ^ " " ^ (ttos t2)))
+    )
+  )
+  | (env, M.MALLOC e) -> 
+    let (s, t) = w (env, e) in
+    (s, TLoc t)
+
+  | (env, M.ASSIGN (e1, e2)) -> (
+    let (s1, t1) = w (env, e1) in
+    let (s2, t2) = w (subst_env s1 env, e2) in
+    match (t1, t2) with
+    | (TLoc t, t') when t = t'-> (s2 @@ s1, t)
+    | (TVar x, _) -> (make_subst x t2, t2)
+    | _ -> raise (M.TypeError "assign error")
+  )
+  | (env, M.BANG e) -> (
+    let (s, t) = w (env, e) in
+    match t with
+    | (TLoc t) -> (s, t)
+    | (TVar x) -> 
+      let t' = TVar (new_var()) in
+      (make_subst x (TLoc t'), t')
+    | _ -> raise (M.TypeError "bang error")
   )
   | (env, M.SEQ (e1, e2)) -> 
-    let (_, t) = w (env, e2) in
-    (empty_subst, t)
+    let (s1, t1) = w (env, e1) in
+    let (s2, t2) = w (subst_env s1 env, e2) in
+    (s2, t2)
 
   | (env, M.PAIR (e1, e2)) -> 
     let (_, t1) = w (env, e1) in
@@ -224,7 +310,7 @@ let rec w : (typ_env * M.exp) -> (subst * typ) = function
   | (env, M.SND e) -> (
     let (s, t) = w (env, e) in
     match t with 
-    | TPair (t1, t2) -> (empty_subst, t1) (*FIXME*)
+    | TPair (t1, t2) -> (empty_subst, t2) (*FIXME*)
     | TVar x -> 
       let t' = TVar (new_var()) in
       (make_subst x (TPair (TVar (new_var()), t')), t')
@@ -247,5 +333,5 @@ let rec ttoty : (subst * typ) -> M.typ = function
 let check : M.exp -> M.typ = fun exp -> 
   let _ = print_endline (etos exp)in 
   let (s, t) = (w ([], exp)) in 
-  (*let _ = print_endline (ttos t) in*)
+  let _ = print_endline (ttos t) in
   ttoty (s, t)
