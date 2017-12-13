@@ -53,7 +53,7 @@ let rec ttos : typ -> string = function
   | TLoc t -> "loc: " ^ ttos t
   | TFun (t1, t2) -> "fun(" ^ ttos t1 ^ ", " ^ ttos t2 ^ ")"
   | TVar v -> "var: " ^ v
-  | TSimple v -> "Simple" ^ v
+  | TSimple v -> "Simple " ^ v
   | TSimple_ v -> "sim_: " ^ v
   | _ -> ""
 
@@ -202,7 +202,7 @@ let rec w : (typ_env * M.exp) -> (subst * typ) = function
       | _ -> raise (M.TypeError "new typscheme")
     )
   | (env,M.APP (e1, e2)) -> (
-    let (s1, t1) = w (env, e1) in
+    let (s1, t1) =w (env, e1) in
     let (s2, t2) = w (subst_env s1 env, e2) in
     let b = TVar (new_var()) in
     let _ = print_endline ("in M.App s2 t1: " ^ ttos (s2 t1) ^ ", t2: " ^ ttos t2) in
@@ -211,7 +211,7 @@ let rec w : (typ_env * M.exp) -> (subst * typ) = function
     let _ = print_newline() in
     (s3 @@ s2 @@ s1, s3 b)
   )
-  | (env, M.LET (dec(*M.VAL (x, e1)*), e2)) -> (
+  | (env, M.LET (dec, e2)) -> (
     match dec with
     | M.VAL (x, e1) ->
       let (s1, t1) = w (env, e1) in
@@ -308,8 +308,8 @@ let rec w : (typ_env * M.exp) -> (subst * typ) = function
   | (env, M.BANG e) -> (
     let (s, t) = w (env, e) in
     match t with
-    | (TLoc t) -> (s, t)
-    | (TVar x) -> 
+    | TLoc t -> (s, t)
+    | TVar x -> 
       let t' = TVar (new_var()) in
       (make_subst x (TLoc t'), t')
     | _ -> raise (M.TypeError "bang error")
@@ -322,7 +322,7 @@ let rec w : (typ_env * M.exp) -> (subst * typ) = function
   | (env, M.PAIR (e1, e2)) -> 
     let (_, t1) = w (env, e1) in
     let (_, t2) = w (env, e2) in
-    (empty_subst, TPair (t1, t2))
+    (empty_subst(*TODO*), TPair (t1, t2))
 
   | (env, M.FST e) -> (
     let (s, t) = w (env, e) in
