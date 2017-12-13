@@ -1,0 +1,3 @@
+let g = (fn x => raise x) in
+let h = (fn x => (raise (g 10)) handle 10 30) in
+h 3

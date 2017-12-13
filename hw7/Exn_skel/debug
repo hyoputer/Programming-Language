@@ -1,0 +1,25 @@
+== Converted Program ==
+(fn g => 
+  (fn h => (h) (3)) 
+  (fn x => 
+    (fn #exn => 
+      if (#exn = 10) then 
+      30
+      else
+      (fn #exn => 201712) (#exn)
+    ) ((g) (10))
+  )
+) 
+(fn x => 
+  (fn #exn => 
+   if (#exn = 10) then 
+    30
+   else
+    (fn #exn => 201712) (#exn)
+  ) (x)
+)
+== Running input program with xexp Interpreter ==
+30
+[Valid] Exception sugar removed successfully
+== Running converted program with xexp Interpreter ==
+201712
