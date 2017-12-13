@@ -292,9 +292,9 @@ let rec w : (typ_env * M.exp) -> (subst * typ) = function
   | (env, M.WRITE e) -> (
     let (s, t) = w (env, e) in
     match t with
-    | TInt | TBool | TString | TSimple _ -> (empty_subst, t)
-    | TVar x -> (make_subst x (TSimple (new_var())), t)
-    | TSimple_ x -> (make_subst x (TSimple x), t)
+    | TInt | TBool | TString | TSimple _ -> (s, t)
+    | TVar x -> (make_subst x (TSimple (new_var())) @@ s, t)
+    | TSimple_ x -> (make_subst x (TSimple x) @@ s, t)
     | _ -> raise (M.TypeError ("write error " ^ ttos t))
   )
   | (env, M.MALLOC e) -> 
@@ -313,8 +313,7 @@ let rec w : (typ_env * M.exp) -> (subst * typ) = function
     match t with
     | TLoc t -> (s, t)
     | TVar x -> 
-      let t' = TVar (new_var()) in
-      (make_subst x (TLoc t'), t')
+      ((make_subst x (TLoc t)) @@ s, t)
     | _ -> raise (M.TypeError "bang error")
   )
   | (env, M.SEQ (e1, e2)) -> 
