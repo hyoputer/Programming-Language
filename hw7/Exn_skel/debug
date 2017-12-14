@@ -1,25 +1,12 @@
 == Converted Program ==
-(fn g => 
-  (fn h => (h) (3)) 
-  (fn x => 
-    (fn #exn => 
-      if (#exn = 10) then 
-      30
-      else
-      (fn #exn => 201712) (#exn)
-    ) ((g) (10))
-  )
-) 
-(fn x => 
-  (fn #exn => 
-   if (#exn = 10) then 
-    30
-   else
-    (fn #exn => 201712) (#exn)
-  ) (x)
-)
+((fn #exn => fn #1 => ((fn #exn => fn #13 => ((fn #exn => fn #15 => (#15) (10)) (#exn)) (fn #14 => (#exn) (#14))) (fn #exn => fn #3 => (#3) (fn # => fn #exn => fn #4 => ((fn #exn => fn #8 => ((fn #exn => fn #12 => (#12) (#)) (#exn)) (fn #9 => ((fn #exn => fn #11 => (#11) (10)) (#exn)) (fn #10 => (#8) ((#9 = #10))))) (#exn)) (fn #5 => 
+ if #5 then 
+  ((fn #exn => fn #7 => (#7) (30)) (#exn)) (#4)
+ else
+  ((fn #exn => fn #6 => (#6) (#exn)) (#exn)) (#4)
+)))) (fn #2 => (#1) (#2))) (fn #e => 201712)) (fn # => #)
 == Running input program with xexp Interpreter ==
 30
 [Valid] Exception sugar removed successfully
 == Running converted program with xexp Interpreter ==
-201712
+Program is not evaluated to a number

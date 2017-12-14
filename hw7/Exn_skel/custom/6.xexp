@@ -1,0 +1,3 @@
+let g = (fn x => raise 7) in
+let f = (fn x => (g 1) handle 10 200) in
+(f 0) handle 77 20

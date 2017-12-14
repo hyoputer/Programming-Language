@@ -1,0 +1,2 @@
+let c = (fn x => raise 11) in
+(if 1 = 2 then (fn x => (x 1) handle 10 30) else (fn x => (x 2) handle 11 22)) c

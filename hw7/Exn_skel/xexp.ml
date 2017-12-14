@@ -13,6 +13,15 @@ type xexp =
   | Raise of xexp
   | Handle of xexp * int * xexp
 
+let rec string_of_xexp : xexp -> string = function
+  | Num i -> "Num " ^ (string_of_int i)
+  | Var x -> "Var " ^ x
+  | Fn (x, e) -> "Fn (" ^ x ^ ", " ^ string_of_xexp e ^ ")"
+  | App (e1, e2) -> "(" ^ string_of_xexp e1 ^ ", " ^ string_of_xexp e2 ^ ")"
+  | If (e1, e2, e3) -> "If " ^ string_of_xexp e1 ^ "then " ^ string_of_xexp e2 ^ "else " ^ string_of_xexp e3
+  | Equal (e1, e2) -> string_of_xexp e1 ^ " = " ^ string_of_xexp e2
+  | _ -> ""
+
 type value = 
   | N of int                (* Integer *)
   | B of bool               (* Boolean *)

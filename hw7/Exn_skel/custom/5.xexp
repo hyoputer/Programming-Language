@@ -1,0 +1,2 @@
+let f = (fn x => raise 10) in
+(f 1) handle 10 30
