@@ -202,17 +202,17 @@ let rec w : (typ_env * M.exp) -> (subst * typ) = function
     let b = SimpleTyp (TVar (new_var())) in(* FIXME *)
     let (s1, t1) = w ((x, b)::env, e) in (
       match subst_scheme s1 b with
-      | SimpleTyp t -> let _ = print_endline ("FN " ^ ttos t1) in (s1, TFun(t, t1))
+      | SimpleTyp t -> (*let _ = print_endline ("FN " ^ ttos t1) in*) (s1, TFun(t, t1))
       | _ -> raise (M.TypeError "new typscheme")
     )
   | (env,M.APP (e1, e2)) -> (
     let (s1, t1) =w (env, e1) in
     let (s2, t2) = w (subst_env s1 env, e2) in
     let b = TVar (new_var()) in
-    let _ = print_endline ("in M.App s2 t1: " ^ ttos (s2 t1) ^ ", t2: " ^ ttos t2) in
+    (*let _ = print_endline ("in M.App s2 t1: " ^ ttos (s2 t1) ^ ", t2: " ^ ttos t2) in*)
     let s3 = u (s2 t1, TFun (t2, b)) in
-    let _ = (s3 @@ s2 @@ s1) TPrint in
-    let _ = print_newline() in
+    (*let _ = (s3 @@ s2 @@ s1) TPrint in
+    let _ = print_newline() in*)
     (s3 @@ s2 @@ s1, s3 b)
   )
   | (env, M.LET (dec, e2)) -> (
@@ -230,7 +230,7 @@ let rec w : (typ_env * M.exp) -> (subst * typ) = function
     | M.REC (f, x, e1) ->
       let b = TVar (new_var()) in
       let (s1', t1') = w ((f, SimpleTyp b)::env, M.FN (x, e1)) in
-      let _ = print_endline ("in M.REC s1' b: " ^ ttos (s1' b) ^ ", t1': " ^ ttos t1') in
+      (*let _ = print_endline ("in M.REC s1' b: " ^ ttos (s1' b) ^ ", t1': " ^ ttos t1') in*)
       let s2' = u (s1' b, t1') in
       let (s1, t1) = (s2' @@ s1', s2' t1') in
       let s1env = subst_env s1 env in
@@ -359,7 +359,7 @@ let rec ttoty : (subst * typ) -> M.typ = function
 
 (* TODO : Implement this function *)
 let check : M.exp -> M.typ = fun exp -> 
-  let _ = print_endline (etos exp)in 
+  (*let _ = print_endline (etos exp)in *)
   let (s, t) = (w ([], exp)) in 
-  let _ = print_endline (ttos t) in
+(*  let _ = print_endline (ttos t) in*)
   ttoty (s, t)

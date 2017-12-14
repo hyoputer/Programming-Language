@@ -64,9 +64,9 @@ let rec cps' exp =
     Fn (k, 
       App (cps' e1,
         Fn (v1,
-          (*App (cps' e2,
+          (*App (cps'' e2,
             Fn (v2,
-              App (cps' e3,
+              App (cps'' e3,
                 Fn (v3,
                   App (Var k, Ifz (Var v1, Var v2, Var v3))
                 )
